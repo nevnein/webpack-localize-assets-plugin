@@ -117,6 +117,7 @@ class LocalizeAssetsPlugin {
     }
     generateLocalizedAssets(compilation) {
         const { locales } = this.options;
+        const { devtool } = compilation.compiler.options;
         const generateLocalizedAssets = () => {
             const assetsWithInfo = Object.keys(compilation.assets)
                 .filter(assetName => assetName.includes(nameTemplatePlaceholder))
@@ -124,7 +125,7 @@ class LocalizeAssetsPlugin {
             for (const asset of assetsWithInfo) {
                 const { source, map } = asset.source.sourceAndMap();
                 const sourceString = source.toString();
-                const sourceMapString = JSON.stringify(map);
+                const sourceMapString = Boolean(devtool) ? JSON.stringify(map) : undefined;
                 const localizationReplacements = this.locatePlaceholders(sourceString);
                 const localePlaceholderLocations = utils_1.findSubstringLocations(sourceString, nameTemplatePlaceholder);
                 const localizedAssetNames = [];
@@ -134,7 +135,7 @@ class LocalizeAssetsPlugin {
                     }
                     const newAssetName = asset.name.replace(new RegExp(nameTemplatePlaceholder, 'g'), locale);
                     localizedAssetNames.push(newAssetName);
-                    const localizedSource = this.localizeAsset(newAssetName, sourceString, sourceMapString, localizationReplacements, localePlaceholderLocations, locale);
+                    const localizedSource = this.localizeAsset(locale, newAssetName, localizationReplacements, localePlaceholderLocations, sourceString, sourceMapString);
                     // @ts-expect-error Outdated @type
                     compilation.emitAsset(newAssetName, localizedSource, asset.info);
                 }
@@ -167,7 +168,7 @@ class LocalizeAssetsPlugin {
             compilation.hooks.afterOptimizeChunkAssets.tap(LocalizeAssetsPlugin.name, generateLocalizedAssets);
         }
     }
-    localizeAsset(assetName, source, map, localizationReplacements, localePlaceholderLocations, locale) {
+    localizeAsset(locale, assetName, localizationReplacements, localePlaceholderLocations, source, map) {
         const localeData = this.options.locales[locale];
         const magicStringInstance = new magic_string_1.default(source);
         // Localze strings

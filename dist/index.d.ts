@@ -14,9 +14,9 @@ declare class LocalizeAssetsPlugin implements Plugin {
         index: number;
     }[];
     generateLocalizedAssets(compilation: Compilation): void;
-    localizeAsset(assetName: string, source: string, map: string, localizationReplacements: {
+    localizeAsset(locale: string, assetName: string, localizationReplacements: {
         stringKey: string;
         index: number;
-    }[], localePlaceholderLocations: number[], locale: string): RawSource | SourceMapSource;
+    }[], localePlaceholderLocations: number[], source: string, map?: string): RawSource | SourceMapSource;
 }
 export = LocalizeAssetsPlugin;

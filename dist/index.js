@@ -160,7 +160,8 @@ class LocalizeAssetsPlugin {
             const assetsWithInfo = compilation.getAssets()
                 .filter(asset => asset.name.includes(nameTemplatePlaceholder));
             for (const asset of assetsWithInfo) {
-                const { source, map } = asset.source.sourceAndMap();
+                const source = asset.source.source();
+                const map = undefined;
                 const localizedAssetNames = [];
                 if (isJsFile.test(asset.name)) {
                     const sourceString = source.toString();

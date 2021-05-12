@@ -18,9 +18,13 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OptionsSchema = void 0;
 const z = __importStar(require("zod"));
+const has_own_prop_1 = __importDefault(require("has-own-prop"));
 const LocaleSchema = z.record(z.string());
 const LocalesSchema = z.record(LocaleSchema).refine(object => Object.keys(object).length > 0, {
     message: 'locales must contain at least one locale',
@@ -29,4 +33,9 @@ exports.OptionsSchema = z.object({
     locales: LocalesSchema,
     functionName: z.string().optional(),
     throwOnMissing: z.boolean().optional(),
+    sourceMapsForLocales: z.string().array().optional(),
+    warnOnUnusedString: z.boolean().optional(),
+}).refine(options => (!options.sourceMapsForLocales
+    || options.sourceMapsForLocales.every(locale => has_own_prop_1.default(options.locales, locale))), {
+    message: 'sourceMapsForLocales must contain valid locales',
 });

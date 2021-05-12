@@ -5,11 +5,15 @@ export declare const OptionsSchema: z.ZodObject<{
     locales: z.ZodRecord<z.ZodRecord<z.ZodString>>;
     functionName: z.ZodUnion<[z.ZodString, z.ZodUndefined]>;
     throwOnMissing: z.ZodUnion<[z.ZodBoolean, z.ZodUndefined]>;
+    sourceMapsForLocales: z.ZodUnion<[z.ZodArray<z.ZodString>, z.ZodUndefined]>;
+    warnOnUnusedString: z.ZodUnion<[z.ZodBoolean, z.ZodUndefined]>;
 }, {
     strict: true;
 }, {
     functionName?: string | undefined;
     throwOnMissing?: boolean | undefined;
+    sourceMapsForLocales?: string[] | undefined;
+    warnOnUnusedString?: boolean | undefined;
     locales: Record<string, Record<string, string>>;
 }>;
 export declare type Options = z.infer<typeof OptionsSchema>;

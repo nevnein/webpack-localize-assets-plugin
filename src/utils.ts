@@ -8,6 +8,11 @@ import {
 
 export const sha256 = (input: string) => crypto.createHash('sha256').update(input).digest('hex');
 
+export const base64 = {
+	encode: (ascii: string) => Buffer.from(ascii).toString('base64'),
+	decode: (base64Encoded: string) => Buffer.from(base64Encoded, 'base64').toString('ascii'),
+};
+
 export function findSubstringLocations(
 	string: string,
 	substring: string,
@@ -37,3 +42,41 @@ export const { toConstantDependency } = (
 		? require('webpack/lib/javascript/JavascriptParserHelpers') // eslint-disable-line node/global-require,import/no-unresolved
 		: require('webpack/lib/ParserHelpers') // eslint-disable-line node/global-require
 );
+
+export const deleteAsset = (
+	compilation: Compilation,
+	assetName: string,
+	newAssetNames: string[],
+) => {
+	// Delete original unlocalized asset
+	if (isWebpack5Compilation(compilation)) {
+		for (const chunk of compilation.chunks) {
+			if (chunk.files.has(assetName)) {
+				for (const newAssetName of newAssetNames) {
+					chunk.files.add(newAssetName);
+				}
+			}
+			if (chunk.auxiliaryFiles.has(assetName)) {
+				for (const newAssetName of newAssetNames) {
+					chunk.auxiliaryFiles.add(newAssetName);
+				}
+			}
+		}
+
+		compilation.deleteAsset(assetName);
+	} else {
+		delete compilation.assets[assetName];
+
+		/**
+		 * To support terser-webpack-plugin v1.4.5 (bundled with Webpack 4)
+		 * which iterates over chunks instead of assets
+		 * https://github.com/webpack-contrib/terser-webpack-plugin/blob/v1.4.5/src/index.js#L176
+		 */
+		for (const chunk of compilation.chunks) {
+			const hasAsset = chunk.files.indexOf(assetName);
+			if (hasAsset > -1) {
+				chunk.files.splice(hasAsset, 1, ...newAssetNames);
+			}
+		}
+	}
+};

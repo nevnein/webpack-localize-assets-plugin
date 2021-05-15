@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteAsset = exports.toConstantDependency = exports.isWebpack5Compilation = exports.isWebpack5 = exports.findSubstringLocations = exports.base64 = exports.sha256 = void 0;
+exports.loadJson = exports.reportModuleWarning = exports.deleteAsset = exports.toConstantDependency = exports.isWebpack5Compilation = exports.isWebpack5 = exports.findSubstringLocations = exports.base64 = exports.sha256 = void 0;
 const crypto_1 = __importDefault(require("crypto"));
 const webpack_1 = __importDefault(require("webpack"));
 const sha256 = (input) => crypto_1.default.createHash('sha256').update(input).digest('hex');
@@ -66,3 +66,17 @@ const deleteAsset = (compilation, assetName, newAssetNames) => {
     }
 };
 exports.deleteAsset = deleteAsset;
+const reportModuleWarning = (module, warning) => {
+    if (module.addWarning) {
+        module.addWarning(warning);
+    }
+    else {
+        module.warnings.push(warning);
+    }
+};
+exports.reportModuleWarning = reportModuleWarning;
+const loadJson = (fs, jsonPath) => {
+    const stringContent = fs.readFileSync(jsonPath).toString();
+    return JSON.parse(stringContent);
+};
+exports.loadJson = loadJson;

@@ -26,7 +26,7 @@ exports.OptionsSchema = void 0;
 const z = __importStar(require("zod"));
 const has_own_prop_1 = __importDefault(require("has-own-prop"));
 const LocaleSchema = z.record(z.string());
-const LocalesSchema = z.record(LocaleSchema).refine(object => Object.keys(object).length > 0, {
+const LocalesSchema = z.record(z.union([LocaleSchema, z.string()])).refine(object => Object.keys(object).length > 0, {
     message: 'locales must contain at least one locale',
 });
 exports.OptionsSchema = z.object({

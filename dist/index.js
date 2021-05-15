@@ -17,7 +17,9 @@ const placeholderPrefix = utils_1.sha256('localize-assets-plugin-placeholder-pre
 const placeholderSuffix = '|';
 class LocalizeAssetsPlugin {
     constructor(options) {
+        this.locales = {};
         this.validatedLocales = new Set();
+        this.fileDependencies = new Set();
         this.trackStringKeys = new Set();
         types_1.OptionsSchema.parse(options);
         this.options = options;
@@ -34,29 +36,49 @@ class LocalizeAssetsPlugin {
         }
     }
     apply(compiler) {
+        const { inputFileSystem } = compiler;
         // Validate output file name
         compiler.hooks.thisCompilation.tap(LocalizeAssetsPlugin.name, (compilation) => {
+            this.loadLocales(inputFileSystem);
             const { filename, chunkFilename } = compilation.outputOptions;
             assert_1.default(filename.includes('[locale]'), 'output.filename must include [locale]');
             assert_1.default(chunkFilename.includes('[locale]'), 'output.chunkFilename must include [locale]');
         });
         // Insert locale placeholders into assets and asset names
         compiler.hooks.compilation.tap(LocalizeAssetsPlugin.name, (compilation, { normalModuleFactory }) => {
+            this.validatedLocales.clear();
             this.interpolateLocaleToFileName(compilation);
-            this.insertLocalePlaceholders(compilation, normalModuleFactory);
+            this.insertLocalePlaceholders(normalModuleFactory);
         });
         compiler.hooks.make.tap(LocalizeAssetsPlugin.name, (compilation) => {
             if (!this.singleLocale) {
                 // Create localized assets by swapping out placeholders with localized strings
                 this.generateLocalizedAssets(compilation);
             }
-            if (this.options.warnOnUnusedString && this.trackStringKeys.size > 0) {
-                for (const unusedStringKey of this.trackStringKeys) {
-                    const error = new WebpackError_js_1.default(`[${LocalizeAssetsPlugin.name}] Unused string key "${unusedStringKey}"`);
-                    compilation.warnings.push(error);
-                }
-            }
         });
+        if (this.options.warnOnUnusedString) {
+            compiler.hooks.done.tap(LocalizeAssetsPlugin.name, ({ compilation }) => {
+                if (this.trackStringKeys.size > 0) {
+                    for (const unusedStringKey of this.trackStringKeys) {
+                        const error = new WebpackError_js_1.default(`[${LocalizeAssetsPlugin.name}] Unused string key "${unusedStringKey}"`);
+                        compilation.warnings.push(error);
+                    }
+                }
+            });
+        }
+    }
+    loadLocales(fs) {
+        this.fileDependencies.clear();
+        for (const locale of this.localeNames) {
+            const localeValue = this.options.locales[locale];
+            if (typeof localeValue === 'string') {
+                this.locales[locale] = utils_1.loadJson(fs, localeValue);
+                this.fileDependencies.add(localeValue);
+            }
+            else {
+                this.locales[locale] = localeValue;
+            }
+        }
     }
     interpolateLocaleToFileName(compilation) {
         var _a;
@@ -75,40 +97,43 @@ class LocalizeAssetsPlugin {
             compilation.mainTemplate.hooks.assetPath.tap(LocalizeAssetsPlugin.name, interpolate);
         }
     }
-    validateLocale(compilation, stringKey) {
+    validateLocale(stringKey, module, node) {
         if (this.validatedLocales.has(stringKey)) {
             return;
         }
-        const { locales, throwOnMissing, } = this.options;
+        const { locales } = this;
+        const { throwOnMissing } = this.options;
         const missingFromLocales = this.localeNames.filter(locale => !has_own_prop_1.default(locales[locale], stringKey));
         const isMissingFromLocales = missingFromLocales.length > 0;
         this.validatedLocales.add(stringKey);
         if (isMissingFromLocales) {
-            const error = new WebpackError_js_1.default(`[${LocalizeAssetsPlugin.name}] Missing localization for key "${stringKey}" in locales: ${missingFromLocales.join(', ')}`);
+            const location = node.loc.start;
+            const error = new WebpackError_js_1.default(`[${LocalizeAssetsPlugin.name}] Missing localization for key "${stringKey}" used in ${module.resource}:${location.line}:${location.column} from locales: ${missingFromLocales.join(', ')}`);
             if (throwOnMissing) {
                 throw error;
             }
             else {
-                compilation.warnings.push(error);
+                utils_1.reportModuleWarning(module, error);
             }
         }
     }
-    insertLocalePlaceholders(compilation, normalModuleFactory) {
+    insertLocalePlaceholders(normalModuleFactory) {
         const { singleLocale } = this;
         const { functionName = '__' } = this.options;
         const handler = (parser) => {
             parser.hooks.call.for(functionName).tap(LocalizeAssetsPlugin.name, (callExpressionNode) => {
+                const { module } = parser.state;
                 const firstArgumentNode = callExpressionNode.arguments[0];
                 if (callExpressionNode.arguments.length === 1
                     && firstArgumentNode.type === 'Literal'
                     && typeof firstArgumentNode.value === 'string') {
                     const stringKey = firstArgumentNode.value;
-                    this.validateLocale(compilation, stringKey);
-                    if (this.options.warnOnUnusedString) {
-                        this.trackStringKeys.delete(stringKey);
+                    this.validateLocale(stringKey, module, callExpressionNode);
+                    for (const fileDependency of this.fileDependencies) {
+                        module.buildInfo.fileDependencies.add(fileDependency);
                     }
                     if (singleLocale) {
-                        utils_1.toConstantDependency(parser, JSON.stringify(this.options.locales[singleLocale][stringKey] || stringKey))(callExpressionNode);
+                        utils_1.toConstantDependency(parser, JSON.stringify(this.locales[singleLocale][stringKey] || stringKey))(callExpressionNode);
                     }
                     else {
                         const placeholder = placeholderPrefix + utils_1.base64.encode(stringKey) + placeholderSuffix;
@@ -117,13 +142,7 @@ class LocalizeAssetsPlugin {
                     return true;
                 }
                 const location = callExpressionNode.loc.start;
-                const error = new WebpackError_js_1.default(`[${LocalizeAssetsPlugin.name}] Ignoring confusing usage of localization function "${functionName}" in ${parser.state.module.resource}:${location.line}:${location.column}`);
-                if (parser.state.module.addWarning) {
-                    parser.state.module.addWarning(error);
-                }
-                else {
-                    parser.state.module.warnings.push(error);
-                }
+                utils_1.reportModuleWarning(module, new WebpackError_js_1.default(`[${LocalizeAssetsPlugin.name}] Ignoring confusing usage of localization function "${functionName}" in ${module.resource}:${location.line}:${location.column}`));
             });
         };
         normalModuleFactory.hooks.parser
@@ -215,11 +234,14 @@ class LocalizeAssetsPlugin {
         }
     }
     localizeAsset(locale, assetName, placeholderLocations, fileNamePlaceholderLocations, source, map) {
-        const localeData = this.options.locales[locale];
+        const localeData = this.locales[locale];
         const magicStringInstance = new magic_string_1.default(source);
         // Localze strings
         for (const { stringKey, index, endIndex } of placeholderLocations) {
             const localizedString = JSON.stringify(localeData[stringKey] || stringKey).slice(1, -1);
+            if (this.options.warnOnUnusedString) {
+                this.trackStringKeys.delete(stringKey);
+            }
             magicStringInstance.overwrite(index, endIndex, localizedString);
         }
         // Localize chunk requests

@@ -4,7 +4,7 @@ import * as z from 'zod';
 import hasOwnProp from 'has-own-prop';
 
 const LocaleSchema = z.record(z.string());
-const LocalesSchema = z.record(LocaleSchema).refine(
+const LocalesSchema = z.record(z.union([LocaleSchema, z.string()])).refine(
 	object => Object.keys(object).length > 0,
 	{
 		message: 'locales must contain at least one locale',
@@ -25,6 +25,12 @@ export const OptionsSchema = z.object({
 });
 
 export type Options = z.infer<typeof OptionsSchema>;
+
+export type PlaceholderLocations = {
+	stringKey: string;
+	index: number;
+	endIndex: number;
+}[];
 
 export { WP4, WP5 };
 export type Webpack = typeof WP4 | typeof WP5;

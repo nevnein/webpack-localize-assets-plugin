@@ -852,4 +852,78 @@ describe(`Webpack ${webpack.version}`, () => {
 			expect(buildStatsUsed.compilation.warnings.length).toBe(0);
 		});
 	});
+
+	test('changing translation to yield different contenthash', async () => {
+		const volume = {
+			'/src/index.js': 'export default __("hello-key");',
+		};
+
+		const buildAStats = await build(
+			volume,
+			(config) => {
+				config.output!.filename = '[name].[contenthash].[locale].js';
+				config.plugins!.push(
+					new WebpackLocalizeAssetsPlugin({
+						locales: {
+							en: {
+								'hello-key': 'Hello',
+								stringWithQuotes: '"quotes"',
+							},
+							es: {
+								'hello-key': 'Hola',
+								stringWithQuotes: '"quotes"',
+							},
+							ja: {
+								'hello-key': 'こんにちは',
+								stringWithQuotes: '"quotes"',
+							},
+						},
+					}),
+				);
+			},
+		);
+
+		const assetFilenameA = Object.keys(buildAStats.compilation.assets)[0];
+		const mfsA = buildAStats.compilation.compiler.outputFileSystem;
+		assertFsWithReadFileSync(mfsA);
+		const mRequireA = createFsRequire(mfsA);
+		const enBuildA = mRequireA(`/dist/${assetFilenameA}`);
+		expect(enBuildA).toBe('Hello');
+
+		const buildBStats = await build(
+			volume,
+			(config) => {
+				config.output!.filename = '[name].[contenthash].[locale].js';
+				config.plugins!.push(
+					new WebpackLocalizeAssetsPlugin({
+						locales: {
+							en: {
+								'hello-key': 'Wazzup',
+								stringWithQuotes: '"quotes"',
+							},
+							es: {
+								'hello-key': 'Hola',
+								stringWithQuotes: '"quotes"',
+							},
+							ja: {
+								'hello-key': 'こんにちは',
+								stringWithQuotes: '"quotes"',
+							},
+						},
+					}),
+				);
+			},
+		);
+
+		const assetFilenameB = Object.keys(buildBStats.compilation.assets)[0];
+
+		const mfsB = buildBStats.compilation.compiler.outputFileSystem;
+		assertFsWithReadFileSync(mfsB);
+		const mRequireB = createFsRequire(mfsB);
+		const enBuildB = mRequireB(`/dist/${assetFilenameB}`);
+		expect(enBuildB).toBe('Wazzup');
+
+		console.log(assetFilenameA, assetFilenameB);
+		expect(assetFilenameA).not.toBe(assetFilenameB);
+	});
 });

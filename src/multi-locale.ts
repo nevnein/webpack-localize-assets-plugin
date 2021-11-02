@@ -168,6 +168,34 @@ export function generateLocalizedAssets(
 						{ locale },
 					);
 
+					console.log(newAssetName, newInfo);
+
+					// Webpack 4 contenthash update
+					if ('wp5Contenthash' in newInfo) {
+						const { filePath, data, matches } = newInfo.wp5Contenthash;
+						const contenthash = data.chunk.contentHash[data.contentHashType];
+						let newContentHash = sha256(contenthash + Math.random());
+
+						console.log(matches);
+
+
+						
+
+
+						// const { contenthash, filepath, data } = newInfo;
+						// console.log({
+						// 	contenthash,
+						// 	filepath,
+						// });
+
+						const a = compilation.mainTemplate.hooks.assetPath.call(
+							filePath,
+							data,
+							newInfo,
+						);
+						console.log(1, a);
+					}
+
 					// Add localce to hash for RealContentHashPlugin plugin
 					if (newInfo.contenthash) {
 						let { contenthash } = newInfo;

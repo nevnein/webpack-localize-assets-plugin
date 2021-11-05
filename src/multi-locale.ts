@@ -93,7 +93,7 @@ function localizeAsset<LocalizedData>(
 	placeholderLocations: PlaceholderLocation[],
 	fileNamePlaceholderLocations: number[],
 	source: string,
-	map: RawSourceMap | null,
+	map: RawSourceMap | null | false,
 	compilation: Compilation,
 	localizeCompiler: LocalizeCompiler<LocalizedData> | undefined,
 	trackStringKeys: StringKeysCollection | undefined,
@@ -244,11 +244,7 @@ export function generateLocalizedAssets<LocalizedData>(
 						placeholderLocations,
 						fileNamePlaceholderLocations,
 						sourceString,
-						(
-							sourceMapForLocales.includes(locale)
-								? map
-								: null
-						),
+						sourceMapForLocales.includes(locale) && map,
 						compilation,
 						localizeCompiler,
 						trackStringKeys,
